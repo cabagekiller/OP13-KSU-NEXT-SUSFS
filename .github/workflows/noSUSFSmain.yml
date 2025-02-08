@@ -119,10 +119,10 @@ jobs:
           mkdir out
           cd ..
           pwd
-          ls -la kernel_platform/build
+          ls -la kernel_platform/prebuilts/kernel-build-tools/bazel/linux-x86_64
           export PATH="/usr/lib/ccache:$PATH"
           # Build with bazel
-          ./kernel_platform/build_with_bazel.py -t sun perf
+          ./build_with_bazel.py -t
             
       - name: Debug Working Directory
         working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus13/kernel_platform/out/dist
