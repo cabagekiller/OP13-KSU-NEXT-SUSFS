@@ -143,7 +143,7 @@ jobs:
           #cp ../../../kernel_patches/KernelSU-Next-Implement-SUSFS-v1.5.5-Universal.patch ./KernelSU-Next
 
           # Apply patches
-          cd KernelSU-Next
+          #cd KernelSU-Next
           #patch -p1 --forward < KernelSU-Next-Implement-SUSFS-v1.5.5-Universal.patch || true
           
           cd ../common
