@@ -193,10 +193,17 @@ jobs:
         run: |
           cd kernel_platform
           mkdir out
-          cd ..
           export PATH="/usr/lib/ccache:$PATH"
           # Modified build command with correct syntax
-          ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf -o "$(pwd)/out"
+          ./build_with_bazel.py \
+            -t sun \
+            perf \
+            --jobs=$(nproc --all) \
+            --verbose_failures \
+            --config=stamp \
+            --user_kmi_symbol_lists=//msm-kernel:android/abi_gki_aarch64_qcom \
+            --ignore_missing_projects \
+            -o "$(pwd)/out"
             
       - name: Debug Working Directory
         working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform/out/dist
