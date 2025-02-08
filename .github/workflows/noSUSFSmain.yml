@@ -119,7 +119,7 @@ jobs:
           mkdir out
           cd ..
           pwd
-          ls -la kernel_platform/prebuilts/kernel-build-tools/bazel
+          ls -la kernel_platform/prebuilts/kernel-build-tools
           export PATH="/usr/lib/ccache:$PATH"
           # Build with bazel
           ./build_with_bazel.py -t
