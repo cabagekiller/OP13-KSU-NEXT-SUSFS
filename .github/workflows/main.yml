@@ -9,7 +9,7 @@ on:
 env:
   DEBIAN_FRONTEND: noninteractive
   ROOT_DIR_PREFIX: "OP12-A15"
-  BRANCH: "android14-6.1"
+  BRANCH: "android15-6.6"
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   
 jobs:
@@ -100,7 +100,7 @@ jobs:
         working-directory: builds/${{ env.ROOT_DIR }}
         run: |
           git clone https://github.com/TheWildJames/AnyKernel3.git -b $BRANCH
-          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android15-6.6
           git clone https://github.com/WildPlusKernel/kernel_patches.git
 
       - name: Setup Kernel Source
