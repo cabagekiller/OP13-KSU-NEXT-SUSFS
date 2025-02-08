@@ -193,9 +193,10 @@ jobs:
         run: |
           cd kernel_platform
           mkdir out
+          cd ..
           export PATH="/usr/lib/ccache:$PATH"
           # Modified build command with correct syntax
-          tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist
+          ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf
             
       - name: Debug Working Directory
         working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus13/kernel_platform/out/dist
