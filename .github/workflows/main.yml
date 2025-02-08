@@ -8,7 +8,7 @@ on:
 
 env:
   DEBIAN_FRONTEND: noninteractive
-  ROOT_DIR_PREFIX: "OP12-A15"
+  ROOT_DIR_PREFIX: "OP13-A15"
   BRANCH: "android15-6.6"
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   
@@ -106,14 +106,14 @@ jobs:
       - name: Setup Kernel Source
         working-directory: builds/${{ env.ROOT_DIR }}
         run: |
-          mkdir -p kernel_platform/oneplus12_v
-          cd kernel_platform/oneplus12_v
+          mkdir -p kernel_platform/oneplus13
+          cd kernel_platform/oneplus13
           repo init -u https://github.com/cabagekiller/kernel_manifest.git -b oneplus/sm8750 -m oneplus13_v.xml --depth=1
           repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
           rm -rf ./kernel_platform/common/android/abi_gki_protected_exports_*
 
       - name: Setup KernelSU
-        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus13/kernel_platform
         run: |
           curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next
           cd KernelSU-Next/kernel
@@ -122,7 +122,7 @@ jobs:
           sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${KSU_VERSION}/" Makefile
           
       - name: Setup SUSFS
-        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus13/kernel_platform
         run: |
           # Create necessary directories
           mkdir -p ./common/fs
@@ -160,7 +160,7 @@ jobs:
           #patch -p1 --fuzz=3 < core_hook.c_fix.patch || true
 
       - name: Configure Kernel
-        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus13/kernel_platform
         run: |
           # Add SUSFS configuration settings
           echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -189,7 +189,7 @@ jobs:
           sed -i '2s/check_defconfig//' ./common/build.config.gki
 
       - name: Build Kernel
-        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus13/
         run: |
           cd kernel_platform
           mkdir out
@@ -198,7 +198,7 @@ jobs:
           tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist
             
       - name: Debug Working Directory
-        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform/out/dist
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus13/kernel_platform/out/dist
         run: |         
           pwd
           ls -l
@@ -206,8 +206,8 @@ jobs:
       - name: Create ZIP Package
         working-directory: builds/${{ env.ROOT_DIR }}
         run: |
-          cp kernel_platform/oneplus12_v/kernel_platform/out/dist/Image AnyKernel3/Image
-          cp kernel_platform/oneplus12_v/kernel_platform/out/dist/Image.lz4 AnyKernel3/Image.lz4
+          cp kernel_platform/oneplus13/kernel_platform/out/dist/Image AnyKernel3/Image
+          cp kernel_platform/oneplus13/kernel_platform/out/dist/Image.lz4 AnyKernel3/Image.lz4
           cd AnyKernel3  # Move to AnyKernel3 directory
           ZIP_NAME="Anykernel3-OP13-A15-android15-6.6-KernelSUNext-SUSFS-$(date +'%Y-%m-%d-%H-%M-%S').zip"
           echo "Creating zip file $ZIP_NAME..."
@@ -239,7 +239,7 @@ jobs:
           # Create a release using the GitHub CLI
           gh release create "v${{ env.BRANCH }}-$(date +'%Y.%m.%d-%H%M%S')" "$ZIP_FILE_PATH" \
             --repo "$REPO_NAME" \
-            --title "OP12 A15 ${{ env.BRANCH }} With KernelSU & SUSFS" \
+            --title "OP13 A15 ${{ env.BRANCH }} With KernelSU & SUSFS" \
             --notes "Kernel release" \
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -250,6 +250,6 @@ jobs:
         with:
           name: build-logs
           path: |
-            builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform/out/*.log
-            builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform/**/*.rej
+            builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus13/kernel_platform/out/*.log
+            builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus13/kernel_platform/**/*.rej
           retention-days: 5
