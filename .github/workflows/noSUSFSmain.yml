@@ -117,7 +117,6 @@ jobs:
         run: |
           cd kernel_platform
           mkdir out
-          cd ..
           pwd
           ls -la kernel_platform/prebuilts/kernel-build-tools
           export PATH="/usr/lib/ccache:$PATH"
