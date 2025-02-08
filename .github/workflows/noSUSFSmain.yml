@@ -118,10 +118,11 @@ jobs:
           cd kernel_platform
           mkdir out
           cd ..
+          pwd
+          ls -la kernel_platform/build
           export PATH="/usr/lib/ccache:$PATH"
-          # Modified build command with correct syntax
-          #Remove plus/ from script call
-          ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf
+          # Build with bazel
+          ./kernel_platform/build_with_bazel.py sun perf
             
       - name: Debug Working Directory
         working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus13/kernel_platform/out/dist
