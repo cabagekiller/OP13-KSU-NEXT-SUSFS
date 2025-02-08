@@ -196,8 +196,8 @@ jobs:
           export PATH="/usr/lib/ccache:$PATH"
           # Modified build command with correct syntax
           ./build_with_bazel.py \
-            -t sun \
-            perf \
+            -t pakala \
+            gki \
             --jobs=$(nproc --all) \
             --verbose_failures \
             --config=stamp \
