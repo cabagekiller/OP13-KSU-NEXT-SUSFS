@@ -1,0 +1,168 @@
+name: Build and Release Kernel
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+  ROOT_DIR_PREFIX: "OP13-A15"
+  BRANCH: "android15-6.6"
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Free disk space
+        run: |
+          set -e
+          sudo apt-get update -qq
+          sudo apt-get install -qq curl
+          curl -fsSL https://raw.githubusercontent.com/kou/arrow/e49d8ae15583ceff03237571569099a6ad62be32/ci/scripts/util_free_space.sh | bash
+
+      - name: Setup Build Environment
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            python3-pip curl git zip unzip gcc g++ make ninja-build file \
+            bc bison flex libssl-dev libelf-dev wget build-essential \
+            python3-dev python3-setuptools rsync ccache
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ runner.os }}-ccache-${{ hashFiles('**/Makefile', '**/Kconfig', '**/common/arch/arm64/configs/gki_defconfig', '**/common/build.config.gki') }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+          max-size: 3G
+
+      - name: Cache pahole build
+        uses: actions/cache@v4
+        id: cache-pahole
+        with:
+          path: pahole
+          key: ${{ runner.os }}-pahole-${{ hashFiles('pahole/CMakeLists.txt') }}
+          restore-keys: ${{ runner.os }}-pahole
+
+      - name: Install Latest Pahole
+        run: |
+          set -e
+          sudo apt-get remove --purge -y dwarves
+          sudo apt-get install -y git build-essential libdw-dev zlib1g-dev
+          if: steps.cache-pahole.outputs.cache-hit != 'true'
+          run: |
+            git clone --recurse-submodules https://git.kernel.org/pub/scm/devel/pahole/pahole.git
+            cd pahole
+            cmake .
+            sudo make install
+
+      - name: Setup Python and Repo Tool
+        run: |
+          set -e
+          python3 -m pip install --upgrade pip
+          pip3 install gitpython xmltodict
+          mkdir -p ~/.bin
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/.bin/repo
+          chmod a+x ~/.bin/repo
+          export PATH=$HOME/bin:$PATH  # Add $HOME/bin to PATH
+          echo "$HOME/.bin" >> $GITHUB_PATH
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+
+      - name: Configure Build Directory
+        run: |
+          set -e
+          ROOT_DIR="${ROOT_DIR_PREFIX}-$(date +'%Y-%m-%d-%I-%M-%p')-release"
+          echo "ROOT_DIR=${ROOT_DIR}" >> $GITHUB_ENV
+          mkdir -p "builds/${ROOT_DIR}"
+
+      - name: Cache Repo Downloads
+        uses: actions/cache@v4
+        id: cache-repo
+        with:
+          path: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus13/kernel_platform/.repo
+          key: ${{ runner.os }}-repo-${{ hashFiles('builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus13/kernel_platform/.repo/manifest.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-repo-
+
+      - name: Setup Kernel Source
+        working-directory: builds/${{ env.ROOT_DIR }}
+        run: |
+          set -e
+          mkdir -p kernel_platform/oneplus13
+          cd kernel_platform/oneplus13
+          if: steps.cache-repo.outputs.cache-hit != 'true'
+          run: |
+            repo init -u https://github.com/cabagekiller/kernel_manifest.git -b oneplus/sm8750 -m oneplus13_v.xml --depth=1
+            repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
+            rm -rf ./kernel_platform/common/android/abi_gki_protected_exports_*
+
+      - name: Clone Required Repositories
+        working-directory: builds/${{ env.ROOT_DIR }}
+        run: |
+          set -e
+          git clone https://github.com/TheWildJames/AnyKernel3.git -b $BRANCH
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android15-6.6
+          git clone https://github.com/WildPlusKernel/kernel_patches.git
+
+      - name: Setup KernelSU
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus13/kernel_platform
+        run: |
+          set -e
+          curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next
+          cd KernelSU-Next/kernel
+          KSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" 10200)
+          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+          sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${KSU_VERSION}/" Makefile
+
+      - name: Setup SUSFS
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus13/kernel_platform
+        run: |
+          set -e
+
+          # Create necessary directories
+          mkdir -p ./common/fs
+          mkdir -p ./common/include/linux
+
+          # Copy SUSFS files
+          cp ../../../susfs4ksu/kernel_patches/fs/* ./common/fs/
+          cp ../../../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+
+          # Copy patches
+          cp ../../../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU-Next/
+          cp ../../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./common/
+          cp ../../../kernel_patches/69_hide_stuff.patch ./common/
+          cp ../../../kernel_patches/KernelSU-Next-Implement-SUSFS-v1.5.5-Universal.patch ./KernelSU-Next
+
+          # Apply patches
+          cd KernelSU-Next
+          if ! patch -p1 --dry-run < KernelSU-Next-Implement-SUSFS-v1.5.5-Universal.patch; then
+            echo "ERROR: Failed to apply KernelSU-Next-Implement-SUSFS-v1.5.5-Universal.patch"
+            exit 1
+          else
+            patch -p1 < KernelSU-Next-Implement-SUSFS-v1.5.5-Universal.patch
+          fi
+
+          cd ../common
+          if ! patch -p1 --dry-run < 50_add_susfs_in_gki-android15-6.6.patch; then
+              echo "ERROR: Failed to apply patch 50"
+              exit 1
+          else
+            patch -p1 < 50_add_susfs_in_gki-android15-6.6.patch
+          fi
+          if ! patch -p1 -F 3 --dry-run < 69_hide_stuff.patch; then
+              echo "ERROR: Failed to apply patch 69"
+              exit 1
+          else
+             patch -p1 -F 3 < 69_hide_stuff.patch
+          fi
+          sed -i '/obj-$(CONFIG_KSU_SUSFS_SUS_SU) += sus_su.o/d' ./
