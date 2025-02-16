@@ -1,0 +1,69 @@
+name: OnePlus13-Kernel-Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      ROOT_DIR_PREFIX: "OP13-A15"
+      BRANCH: "android15-6.6"
+      OUT_DIR: out
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Build Environment
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            python3-pip curl git zip unzip gcc g++ make ninja-build file bc \
+            bison flex libssl-dev libelf-dev wget build-essential python3-dev \
+            python3-setuptools rsync ccache git build-essential libdw-dev zlib1g-dev
+
+      - name: Cache ccache
+        uses: actions/cache@v3
+        with:
+          path: /usr/lib/ccache
+          key: ${{ runner.os }}-ccache-${{ hashFiles('**/build.config.gki') }}
+
+      - name: Cache pip Dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+
+      - name: Configure Build Directory
+        run: |
+          ROOT_DIR="${ROOT_DIR_PREFIX}-$(date +'%Y-%m-%d-%I-%M-%p')-release"
+          echo "ROOT_DIR=${ROOT_DIR}" >> $GITHUB_ENV
+          mkdir -p "builds/${ROOT_DIR}"
+
+      - name: Setup Kernel
+        run: ./scripts/setup_kernel.sh
+        working-directory: builds/${{ env.ROOT_DIR }}
+
+      - name: Create config.txt for artifact management
+        run: |
+          mkdir -p ${{ env.OUT_DIR }}
+          echo "OGKI/${{ env.BRANCH }}/${{ env.BRANCH }}-2024-06/${{ env.BRANCH }}-2024-06_r1_abogki123456789" > ${{ env.OUT_DIR }}/config.txt
+
+      - name: Build Kernel
+        run: ./scripts/build_kernel.sh
+        working-directory: builds/${{ env.ROOT_DIR }}
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-build
+          path: builds/${{ env.ROOT_DIR }}/out/
+          retention-days: 7
