@@ -188,6 +188,12 @@ jobs:
           # Remove defconfig check
           sed -i '2s/check_defconfig//' ./common/build.config.gki
 
+      - name: Create config.txt for artifact management
+        run: |
+          mkdir -p out
+          echo "OGKI/android15-6.6/android15-6.6-2024-06/android15-6.6-2024-06_r1_abogki123456789" > out/config.txt
+
+
       - name: Build Kernel
         working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus13/
         run: |
