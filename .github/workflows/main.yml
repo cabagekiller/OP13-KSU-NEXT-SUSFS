@@ -193,7 +193,9 @@ jobs:
         run: |
           CONFIG_PATH="oplus/platform/aosp_gki"
           mkdir -p "$CONFIG_PATH"
-          echo "OGKI/android15-6.6/android15-6.6-2024-06/android15-6.6-2024-06_r1_abogki123456789" > "$CONFIG_PATH/config.txt"
+          echo "TAG=android15-6.6
+          relative_path=kernel_platform/oneplus13/kernel_platform/oplus/platform/aosp_gki
+          " > "$CONFIG_PATH/config.txt"
           echo "Config file created at: $(realpath $CONFIG_PATH/config.txt)"
 
           mkdir -p kernel_platform/oneplus13/out/target/product/sun
